@@ -18,177 +18,9 @@ from aiohttp import web
 log = logging.getLogger(__name__)
 
 # ── HTML page ─────────────────────────────────────────────────────────
-HTML_PAGE = """\
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>audioserver</title>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<style>
-    @font-face {{
-      font-family: 'Departure Mono';
-      src: url('DepartureMono-Regular.otf') format('opentype');
-      font-weight: normal;
-      font-style: normal;
-    }}
-
-    * {{
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }}
-
-    body {{
-      background: #000;
-      color: #fff;
-      font-family: 'Departure Mono', monospace;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }}
-
-    h1 {{
-      font-size: 3rem;
-      margin-bottom: 1rem;
-    }}
-
-    h2 {{
-      font-size: 2rem;
-      margin-top: 2rem;
-      margin-bottom: 1rem;
-    }}
-
-    h3 {{
-      font-size: 1.5rem;
-      margin-top: 1.5rem;
-      margin-bottom: 0.75rem;
-    }}
-
-    p {{
-      line-height: 1.8;
-      margin-bottom: 1rem;
-      max-width: 60ch;
-    }}
-
-    a {{
-      color: #fff;
-      text-decoration: underline;
-    }}
-
-    a:hover {{
-      text-decoration: none;
-    }}
-
-    button {{
-      background: #fff;
-      color: #000;
-      border: none;
-      font-family: 'Departure Mono', monospace;
-      font-size: 1rem;
-      padding: 0.75rem 1.5rem;
-      cursor: pointer;
-      border-radius: 0;
-      margin-right: 0.5rem;
-      margin-top: 1rem;
-    }}
-
-    button:hover {{
-      background: #ccc;
-    }}
-
-    .container {{
-      width: 100%;
-      max-width: 800px;
-      margin: 0 auto;
-    }}
-
-    .section {{
-      margin-bottom: 3rem;
-    }}
-
-    .stat {{
-      display: flex;
-      justify-content: space-between;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid #333;
-    }}
-
-    .stat span:first-child {{
-      color: #888;
-    }}
-</style></head>
-<body>
-<div class="container">
-  <div class="section">
-    <h1>audioserver</h1>
-  </div>
-  <div class="section">
-    <h2>stream info</h2>
-    <div class="stat"><span>stream url</span><span>{stream_url}</span></div>
-    <div class="stat"><span>format</span><span>hls (aac)</span></div>
-    <div class="stat"><span>sample rate</span><span>{sample_rate} hz</span></div>
-    <div class="stat"><span>channels</span><span>{channels}</span></div>
-    <div class="stat"><span>bitrate</span><span>{bitrate}</span></div>
-    <div class="stat"><span>clients</span><span id="clients">0</span></div>
-  </div>
-  <div class="section">
-    <h2>controls</h2>
-    <div class="stat"><span>uptime</span><span id="uptime">{uptime}</span></div>
-    <div class="stat"><span>status</span><span id="status">stopped</span></div>
-    <button id="play-btn" onclick="toggleStream()">play</button>
-  </div>
-</div>
-<audio id="player" style="display:none"></audio>
-
-<script>
-  const streamUrl = "{stream_url}";
-  const audio = document.getElementById("player");
-  let hls = null;
-  let playing = false;
-
-  function toggleStream() {{
-    const btn = document.getElementById("play-btn");
-    if (!playing) {{
-      if (Hls.isSupported()) {{
-        hls = new Hls();
-        hls.loadSource(streamUrl);
-        hls.attachMedia(audio);
-        hls.on(Hls.Events.MANIFEST_PARSED, function() {{
-          audio.play();
-        }});
-      }} else if (audio.canPlayType('application/vnd.apple.mpegurl')) {{
-        audio.src = streamUrl;
-        audio.play();
-      }}
-      btn.textContent = "stop";
-      document.getElementById("status").textContent = "streaming";
-      playing = true;
-    }} else {{
-      audio.pause();
-      audio.src = "";
-      if (hls) {{
-        hls.destroy();
-        hls = null;
-      }}
-      btn.textContent = "play";
-      document.getElementById("status").textContent = "stopped";
-      playing = false;
-    }}
-  }}
-
-  // Poll status endpoint
-  setInterval(async () => {{
-    try {{
-      const r = await fetch("/status");
-      const d = await r.json();
-      document.getElementById("clients").textContent = d.clients;
-    }} catch {{}}
-  }}, 3000);
-</script>
-</body>
-</html>
-"""
+_HTML_DIR = Path(__file__).parent / "web"
+with open(_HTML_DIR / "index.html", "r") as _f:
+    HTML_PAGE = _f.read()
 
 
 # ── Stream handler class ──────────────────────────────────────────────
@@ -222,8 +54,8 @@ class StreamServer:
         # Serve HLS segment files
         app.router.add_get("/stream{segment:03d}.ts", self._segment_handler)
         app.router.add_get("/stream{segment}.ts", self._segment_handler)
-        # Serve static font file
-        self._font_path = Path(__file__).parent / "DepartureMono-Regular.otf"
+        # Serve static font file from web/
+        self._font_path = _HTML_DIR / "DepartureMono-Regular.otf"
         app.router.add_get("/DepartureMono-Regular.otf", self._font_handler)
         return app
 
@@ -231,14 +63,12 @@ class StreamServer:
         uptime = self._elapsed()
         host = request.host if request.host else f"{self._host}:{self._port}"
         stream_url = f"http://{host}/stream.m3u8"
-        html = HTML_PAGE.format(
-            host=host,
-            port=self._port,
-            stream_url=stream_url,
-            sample_rate=self._sample_rate,
-            channels=self._channels,
-            bitrate=self._bitrate,
-            uptime=f"{uptime:.0f}s",
+        html = (
+            HTML_PAGE.replace("{stream_url}", stream_url)
+            .replace("{sample_rate}", str(self._sample_rate))
+            .replace("{channels}", str(self._channels))
+            .replace("{bitrate}", self._bitrate)
+            .replace("{uptime}", f"{uptime:.0f}s")
         )
         return web.Response(text=html, content_type="text/html")
 
