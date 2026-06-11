@@ -1,21 +1,6 @@
-# Audio Stream Server
+# audioserver
 
 Streams audio from a USB/audio interface on a Raspberry Pi as an **HLS (HTTP Live Streaming)** stream — compatible with all browsers (Chrome, Safari, Firefox) and native players.
-
-```
-  ┌─────────────┐    raw PCM    ┌─────────────┐   AAC   ┌───────────────────┐
-  │ Audio       │ ─────────────▶│ HLS Encoder │ ──────▶ │  Audio Stream     │
-  │ Interface   │   (USB)       │ (ffmpeg)    │         │  Server (Python)  │
-  │ (e.g. Focus- │               └─────────────┘         │                   │
-  │ rite, etc.) │                                        │  HTTP :8080        │
-  └─────────────┘                                        │                   │
-                                                         │  /stream.m3u8 ─▶ HLS
-                                                         │  /stream{NNN}.ts ─▶ segments
-                                                         │  /status.json ─▶ health
-                                                         └────────┬──────────┘
-                                                                  │
-                                                           Internet / LAN
-```
 
 ### How it works
 
@@ -214,4 +199,3 @@ journalctl -u audioserver -n 50
 ## License
 
 MIT
-# audioserver

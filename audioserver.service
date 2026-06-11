@@ -1,0 +1,32 @@
+[Unit]
+Description=Audio Stream Server
+After=network.target sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/audioserver
+EnvironmentFile=/etc/audioserver/env
+ExecStart=/usr/bin/python3 /opt/audioserver/main.py
+Restart=always
+RestartSec=3
+TimeoutStartSec=10
+TimeoutStopSec=10
+
+# Security hardening
+ProtectSystem=full
+ReadWritePaths=/opt/audioserver
+ProtectHome=true
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Real-time priority for audio
+IOSchedulingClass=real-time
+IOSchedulingPriority=0
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=70
+CPUAffinity=0-3
+
+[Install]
+WantedBy=multi-user.target
